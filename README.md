@@ -1,2 +1,2 @@
 # vmsizesauto
-proof of concept / mvp for automated pr from storage account
+proof of concept (POC) / mvp for automated pr from storage account
