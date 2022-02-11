@@ -174,7 +174,7 @@ namespace GitHubPullRequestsPlayground
             CreatePR(ghSvc, sourceBranchName: nBranch, sourceRepoOwner: GHOwner, sourceRepo: sourceRepo,
                 targetBranchName: "main", targetRepoOwner: orgRepoOwner, targetRepo: targetRepo);
 
-            // -------------------Other
+            // -------------------Playing around
             //CreatePR(ghSvc, sourceBranchName: "firsttest", sourceRepoOwner: GHOwner, sourceRepo: sourceRepo,
             //    targetBranchName: "main", targetRepoOwner: orgRepoOwner, targetRepo: targetRepo);
 
