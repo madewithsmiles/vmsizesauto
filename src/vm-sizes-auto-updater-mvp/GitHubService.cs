@@ -11,7 +11,6 @@ using System.Linq;
 using System.Net;
 using System.Globalization;
 using Octokit.Helpers;
-using System.IO;
 
 namespace Microsoft.Azure.Compute.Supportability.Tools
 {

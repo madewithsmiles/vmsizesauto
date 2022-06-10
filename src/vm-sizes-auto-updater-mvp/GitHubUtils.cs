@@ -11,7 +11,6 @@ using System.Linq;
 using System.Net;
 using System.Globalization;
 using Octokit.Helpers;
-using System.IO;
 
 namespace Microsoft.Azure.Compute.Supportability.Tools
 {
@@ -131,21 +130,21 @@ namespace Microsoft.Azure.Compute.Supportability.Tools
         static void CreatePR(GHService ghSvc, string sourceBranchName, string sourceRepoOwner, Repository sourceRepo, 
             string targetBranchName, string targetRepoOwner, Repository targetRepo)
         {
-            Logger.LogInformation("Branches: ");
-            Branch sourceBranch = ghSvc.OctoClient.Repository.Branch.Get(owner: sourceRepoOwner, name: sourceRepo.Name, branch: sourceBranchName).GetAwaiter().GetResult();
-            Branch targetBranch = ghSvc.OctoClient.Repository.Branch.Get(owner: targetRepoOwner, name: targetRepoOwner.Name, branch: targetBranchName).GetAwaiter().GetResult();
-            Logger.LogInformation(new { sourceBranch.Name, sourceBranch.Commit.Ref, sourceBranch.Commit.Url });
-            Logger.LogInformation(new { targetBranch.Name, targetBranch.Commit.Ref, targetBranch.Commit.Url });
+            //Logger.LogInformation("Branches: ");
+            //Branch sourceBranch = ghSvc.OctoClient.Repository.Branch.Get(owner: sourceRepoOwner, name: sourceRepo.Name, branch: sourceBranchName).GetAwaiter().GetResult();
+            //Branch targetBranch = ghSvc.OctoClient.Repository.Branch.Get(owner: targetRepoOwner, name: targetRepoOwner.Name, branch: targetBranchName).GetAwaiter().GetResult();
+            //Logger.LogInformation(new { sourceBranch.Name, sourceBranch.Commit.Ref, sourceBranch.Commit.Url });
+            //Logger.LogInformation(new { targetBranch.Name, targetBranch.Commit.Ref, targetBranch.Commit.Url });
 
-            Logger.LogInformation("Creating a PR: ");
-            string title = $"[Compute]-[VMSizeUpdater]-Test-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
-            NewPullRequest npr = Program.BuildNewPullRequestFromFork(title: title, sourceRepoBranch: sourceBranch,
-                targetRepoBranch: targetBranch, sourceRepo: sourceRepo, targetRepo: targetRepo);
-            npr.MaintainerCanModify = true; // Add description
-            Logger.LogInformation(new { npr.Title, npr.Head, npr.Body, npr.MaintainerCanModify });
+            //Logger.LogInformation("Creating a PR: ");
+            //string title = $"[Compute]-[VMSizeUpdater]-Test-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+            //NewPullRequest npr = Program.BuildNewPullRequestFromFork(title: title, sourceRepoBranch: sourceBranch,
+            //    targetRepoBranch: targetBranch, sourceRepo: sourceRepo, targetRepo: targetRepo);
+            //npr.MaintainerCanModify = true; // Add description
+            //Logger.LogInformation(new { npr.Title, npr.Head, npr.Body, npr.MaintainerCanModify });
 
-            PullRequest nprRes = ghSvc.PullRequestService.CreateNewPullRequest(Program.GHService.GetTrueRepoOwner(targetRepo),
-                targetRepo.Name, npr);
+            //PullRequest nprRes = ghSvc.PullRequestService.CreateNewPullRequest(Program.GHService.GetTrueRepoOwner(targetRepo),
+            //    targetRepo.Name, npr);
         }
     }
 }
