@@ -18,7 +18,7 @@ namespace Microsoft.Azure.Compute.Supportability.Tools
     {
         public static ILogger Logger;
 
-        static NewPullRequest BuildNewPullRequestFromFork(string title, Branch sourceRepoBranch, Branch targetRepoBranch, Repository sourceRepo, Repository targetRepo)
+        public static NewPullRequest BuildNewPullRequestFromFork(string title, Branch sourceRepoBranch, Branch targetRepoBranch, Repository sourceRepo, Repository targetRepo)
         {
             string trueOwner = GHService.GetTrueRepoOwner(sourceRepo);
             return new NewPullRequest(title: title,
@@ -27,20 +27,17 @@ namespace Microsoft.Azure.Compute.Supportability.Tools
         }
 
         
-        static void CreateBranchAndPushFiles(GHService ghSvc, Repository repo, string branchName, string[] filesPathToPush)
+        public static void CreateBranchAndPushFiles(GHService ghSvc, Repository repo, string branchName, Dictionary<string,string> filesPathToPush, string branchToCopy = "")
         { /// https://github.com/octokit/octokit.net/blob/b4d7fb09784f5695fb1360ca40d88262e9bc519f/Octokit.Tests.Integration/Clients/RepositoryCommitsClientTests.cs#L445
             string repoOwner = GHService.GetTrueRepoOwner(repo);
             string repoName = repo.Name;
 
-            Reference newBranch = CreateBranchFromDefaultBranch(ghSvc, repo, branchName);
+            Reference newBranch = CreateNewCopyOfBranch(ghSvc, repo, branchName, branchToCopy);
             string newBranchReference = $"heads/{branchName}";
 
             // Create commit
-            string commitMessage = $"compute-vmsizes-publisher: Adding {filesPathToPush.Length} files!";
-            /// What if the files already exist? what do we do? Need to check that scenario 
-            /// -- maybe we'll delete in one commit and re-upload in the next lol
-            /// Might not need too! 
-            TreeResponse treeForNewBranch = CreateTree(ghSvc, repo, filesPathToPush.ToList(), treeBranchToUpdateReference: newBranchReference);
+            string commitMessage = $"compute-vmsizes-publisher: Adding/Updating {filesPathToPush.Count} files!";
+            TreeResponse treeForNewBranch = CreateTree(ghSvc, repo, filesPathToPush, treeBranchToUpdateReference: newBranchReference);
             Commit newBranchCommit = CreateCommit(ghSvc, repo, message: commitMessage, sha: treeForNewBranch.Sha, parent: newBranch.Object.Sha);
 
             // Update new branch
@@ -50,16 +47,16 @@ namespace Microsoft.Azure.Compute.Supportability.Tools
                 reference: newBranchReference, referenceUpdate: newReferenceUpdate).GetAwaiter().GetResult();
         }
 
-        static TreeResponse CreateTree(GHService ghSvc, Repository repo, List<string> treeContentsRelativeFilePath, 
+        public static TreeResponse CreateTree(GHService ghSvc, Repository repo, Dictionary<string, string> treeContentsRelativeFilePathToRemotePath, 
             string treeBranchToUpdateReference=null)
         {
             string repoOwner = GHService.GetTrueRepoOwner(repo);
             string repoName = repo.Name;
             var collection = new List<NewTreeItem>();
 
-            foreach (var filePath in treeContentsRelativeFilePath)
+            foreach (var filePath in treeContentsRelativeFilePathToRemotePath)
             {
-                string content = File.ReadAllText(filePath);
+                string content = File.ReadAllText(filePath.Key);
 
                 var newBlob = new NewBlob
                 {
@@ -73,7 +70,7 @@ namespace Microsoft.Azure.Compute.Supportability.Tools
                 {
                     Type = TreeType.Blob,
                     Mode = Octokit.FileMode.File,
-                    Path = filePath,
+                    Path = filePath.Value,
                     Sha = newBlobReference.Sha
                 });
             }
@@ -95,7 +92,7 @@ namespace Microsoft.Azure.Compute.Supportability.Tools
             return ghSvc.OctoClient.Git.Tree.Create(owner: repoOwner, name: repoName, newTree).GetAwaiter().GetResult();
         }
 
-        static Commit CreateCommit(GHService ghSvc, Repository repo, string message, string sha, string parent)
+        public static Commit CreateCommit(GHService ghSvc, Repository repo, string message, string sha, string parent)
         {
             string repoOwner = GHService.GetTrueRepoOwner(repo);
             string repoName = repo.Name;
@@ -105,11 +102,16 @@ namespace Microsoft.Azure.Compute.Supportability.Tools
             return ghSvc.OctoClient.Git.Commit.Create(owner: repoOwner, name: repoName, commit: newCommit).GetAwaiter().GetResult();
         }
 
-        static Reference CreateBranchFromDefaultBranch(GHService ghSvc, Repository repo, string newBranch)
+        public static Reference CreateNewCopyOfBranch(GHService ghSvc, Repository repo, string newBranch, string branchToCopy = "")
         { /// https://github.com/octokit/octokit.net/blob/main/Octokit/Helpers/ReferenceExtensions.cs
             string repoOwner = GHService.GetTrueRepoOwner(repo);
             string repoName = repo.Name;
-            string defaultBranchName = repo.DefaultBranch;
+            string defaultBranchName = branchToCopy;
+            if (string.IsNullOrWhiteSpace(branchToCopy)) // Use default if branch to copy is empty or whitespace
+            {
+                defaultBranchName = repo.DefaultBranch;
+            }
+
             string defaultBranchNameReference = $"refs/heads/{defaultBranchName}";
             Reference defaultBranchReference = ghSvc.OctoClient.Git.Reference.Get(
                 owner: repoOwner, name: repoName, reference: defaultBranchNameReference).GetAwaiter().GetResult();
@@ -118,7 +120,7 @@ namespace Microsoft.Azure.Compute.Supportability.Tools
                 owner: repoOwner, name: repoName, branchName: newBranch, baseReference: defaultBranchReference).GetAwaiter().GetResult();
         }
 
-        static void DeleteBranch(GHService ghSvc, Repository repo, string branchToDelete)
+        public static void DeleteBranch(GHService ghSvc, Repository repo, string branchToDelete)
         {
             string repoOwner = GHService.GetTrueRepoOwner(repo);
             string repoName = repo.Name;
@@ -127,24 +129,25 @@ namespace Microsoft.Azure.Compute.Supportability.Tools
         }
 
 
-        static void CreatePR(GHService ghSvc, string sourceBranchName, string sourceRepoOwner, Repository sourceRepo, 
-            string targetBranchName, string targetRepoOwner, Repository targetRepo)
+        public static void CreatePR(GHService ghSvc, string sourceBranchName, string sourceRepoOwner, Repository sourceRepo, 
+            string targetBranchName, string targetRepoOwner, Repository targetRepo, string title = "", string prMessage = "", bool isDraft = false)
         {
             //Logger.LogInformation("Branches: ");
-            //Branch sourceBranch = ghSvc.OctoClient.Repository.Branch.Get(owner: sourceRepoOwner, name: sourceRepo.Name, branch: sourceBranchName).GetAwaiter().GetResult();
-            //Branch targetBranch = ghSvc.OctoClient.Repository.Branch.Get(owner: targetRepoOwner, name: targetRepoOwner.Name, branch: targetBranchName).GetAwaiter().GetResult();
-            //Logger.LogInformation(new { sourceBranch.Name, sourceBranch.Commit.Ref, sourceBranch.Commit.Url });
-            //Logger.LogInformation(new { targetBranch.Name, targetBranch.Commit.Ref, targetBranch.Commit.Url });
+            Branch sourceBranch = ghSvc.OctoClient.Repository.Branch.Get(owner: sourceRepoOwner, name: sourceRepo.Name, branch: sourceBranchName).GetAwaiter().GetResult();
+            Branch targetBranch = ghSvc.OctoClient.Repository.Branch.Get(owner: targetRepoOwner, name: targetRepo.Name, branch: targetBranchName).GetAwaiter().GetResult();
+            Logger.LogInformation(new { sourceBranch.Name, sourceBranch.Commit.Ref, sourceBranch.Commit.Url }.ToString());
+            Logger.LogInformation(new { targetBranch.Name, targetBranch.Commit.Ref, targetBranch.Commit.Url }.ToString());
 
-            //Logger.LogInformation("Creating a PR: ");
-            //string title = $"[Compute]-[VMSizeUpdater]-Test-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
-            //NewPullRequest npr = Program.BuildNewPullRequestFromFork(title: title, sourceRepoBranch: sourceBranch,
-            //    targetRepoBranch: targetBranch, sourceRepo: sourceRepo, targetRepo: targetRepo);
-            //npr.MaintainerCanModify = true; // Add description
-            //Logger.LogInformation(new { npr.Title, npr.Head, npr.Body, npr.MaintainerCanModify });
+            Logger.LogInformation("Creating a PR: ");
+            NewPullRequest npr = BuildNewPullRequestFromFork(title: title, sourceRepoBranch: sourceBranch,
+                targetRepoBranch: targetBranch, sourceRepo: sourceRepo, targetRepo: targetRepo);
+            npr.MaintainerCanModify = true; 
+            npr.Body = prMessage; // Add description
+            npr.Draft = isDraft;
+            Logger.LogInformation(new { npr.Title, npr.Head, npr.Body, npr.MaintainerCanModify }.ToString());
 
-            //PullRequest nprRes = ghSvc.PullRequestService.CreateNewPullRequest(Program.GHService.GetTrueRepoOwner(targetRepo),
-            //    targetRepo.Name, npr);
+            PullRequest nprRes = ghSvc.PullRequestService.CreateNewPullRequest(targetRepoOwner,
+                targetRepo.Name, npr);
         }
     }
 }
